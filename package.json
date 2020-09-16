@@ -1,0 +1,11 @@
+{
+  "name": "imgur-keeper",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "yoyo930021 <yoyo930021@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "bluebird": "^3.7.2",
+    "node-fetch": "^2.6.1"
+  }
+}
