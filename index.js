@@ -3,6 +3,7 @@ const Promise = require('bluebird')
 const fs = require('fs')
 const { basename, join } = require('path')
 const { differenceInMonths } = require('date-fns')
+const uniqWith = require('lodash.uniqwith')
 const writeFile = Promise.promisify(fs.writeFile)
 
 const getImgurImage = async (url) => {
@@ -14,7 +15,7 @@ const getImgurImage = async (url) => {
   const rawLastResult = JSON.parse(fs.readFileSync(join(__dirname, 'lastResult.json')))
 
   const lastResult = rawLastResult
-    .filter((data) => differenceInMonths(new Date(data.update_at), Date.now()) <= 5)
+    .filter((data) => differenceInMonths(Date.now(), new Date(data.update_at)) <= 2)
     .map((data) => data.name)
 
   console.log('Read imgur.txt......')
@@ -35,6 +36,7 @@ const getImgurImage = async (url) => {
     { concurrency: 6 }
   )
 
-  fs.writeFileSync(join(__dirname, 'lastResult.json'), JSON.stringify(rawLastResult.concat(finished)))
+  const result = uniqWith(rawLastResult.concat(finished), (a, b) => a.name === b.name)
+  fs.writeFileSync(join(__dirname, 'lastResult.json'), JSON.stringify(result))
   console.log('✨ Success')
 })()
