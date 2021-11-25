@@ -1,42 +1,57 @@
-const fetch = require('node-fetch')
-const Promise = require('bluebird')
-const fs = require('fs')
-const { basename, join } = require('path')
-const { differenceInMonths } = require('date-fns')
-const uniqWith = require('lodash.uniqwith')
-const writeFile = Promise.promisify(fs.writeFile)
+import fetch from 'node-fetch'
+import fs from 'fs'
+import { basename, join } from 'path'
+import { subDays } from 'date-fns'
+import pMap from 'p-map'
+import dotenv from 'dotenv'
+import Knex from 'knex'
+
+dotenv.config()
+
+const { DB_HOST, DB_USER, DB_PASSWORD, DB_PORT, DB_NAME, DAYS_BEFORE = 30 } = process.env
 
 const getImgurImage = async (url) => {
   return fetch(url).then((res) => res.buffer())
 }
 
 (async () => {
-  console.log('Read lastResult file........');
-  const rawLastResult = JSON.parse(fs.readFileSync(join(__dirname, 'lastResult.json')))
+  const knex = Knex({
+    client: 'pg',
+    connection: {
+      host: DB_HOST,
+      user: DB_USER,
+      password: DB_PASSWORD,
+      port: DB_PORT,
+      database: DB_NAME,
+    },
+  })
 
-  const lastResult = rawLastResult
-    .filter((data) => differenceInMonths(Date.now(), new Date(data.update_at)) <= 2)
-    .map((data) => data.name)
+  const oneMonthBefore = subDays(new Date(), DAYS_BEFORE)
 
-  console.log('Read imgur.txt......')
-  const images = fs.readFileSync(join(__dirname, 'imgur.txt'), 'utf-8').split('\n').filter((el) => el.length > 0)
+  // e.g.
+  // const recentImages = [
+  //   { image_path: 'https://i.imgur.com/jTzXabR.jpg', factory_id: '123' },
+  // ]
+  const recentImages = await knex('api_image')
+    .select('image_path', 'factory_id')
+    .where('created_at', '>=', oneMonthBefore)
 
-  const inputs = images.filter((image) => !lastResult.includes(basename(image)))
-  console.log(`There are valid ${lastResult.length} files, and need to update ${inputs.length}`)
+  await pMap(
+    recentImages,
+    async (image) => {
+      const filename = `factory-${image.factory_id}-imgur-${basename(image.image_path)}`
+      const filePath = join('images', filename)
 
-  const finished = []
-  await Promise.map(
-    inputs,
-    (url) => {
-      return getImgurImage(url).then((el) => writeFile(join('output', basename(url)), el)).then(() => {
-        console.log(`Saved - ${join('output', basename(url))}`)
-        finished.push({ name: basename(url), update_at: Date.now() })
-      })
+      if (!fs.existsSync(filePath)) {
+        const imgur = await getImgurImage(image.image_path)
+
+        fs.writeFileSync(filePath, imgur)
+        console.log(`Saved - ${filePath}`)
+      }
     },
     { concurrency: 6 }
   )
 
-  const result = uniqWith(rawLastResult.concat(finished), (a, b) => a.name === b.name)
-  fs.writeFileSync(join(__dirname, 'lastResult.json'), JSON.stringify(result))
   console.log('✨ Success')
+  await knex.destroy()
 })()

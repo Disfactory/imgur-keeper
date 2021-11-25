@@ -5,9 +5,12 @@
   "author": "yoyo930021 <yoyo930021@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "bluebird": "^3.7.2",
-    "date-fns": "^2.16.1",
-    "lodash.uniqwith": "^4.5.0",
-    "node-fetch": "^2.6.1"
-  }
+    "date-fns": "^2.26.0",
+    "dotenv": "^10.0.0",
+    "knex": "^0.95.14",
+    "node-fetch": "^3.1.0",
+    "p-map": "4.0.0",
+    "pg": "^8.7.1"
+  },
+  "type": "module"
 }
